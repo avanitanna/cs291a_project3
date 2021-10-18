@@ -281,6 +281,7 @@ post '/login' do
         if user.instace_variable_get(:@user_stream) == TRUE
             status 409
             return
+        end
         #if the username matches but the password does not
         if user.instance_variable_get(:@password) != password
           status 403
@@ -325,7 +326,7 @@ post '/login' do
     #user = Clients.new(username, password, stream_token, message_token)
     #$connected_users.append(username)
     #We are also opening the stream at this point
-    user = Clients.new(username, passwod, stream_token, message_token, TRUE)
+    user = Clients.new(username, password, stream_token, message_token, TRUE)
     $all_users.append(user)
     ### BROADCAST JOIN - check????
     time_stamp = Time.now.to_f.to_s
@@ -345,7 +346,6 @@ post '/login' do
     return [201,{"message_token": message_token, "stream_token":stream_token}.to_json]
     #{"message_token": message_token, "stream_token":stream_token}.to_json
     #status 201
-    return
   else
     status 422
     return
@@ -465,7 +465,7 @@ end
 
 #   puts 'request.params:'
 #   PP.pp request.params
-#   puts
+#   CORS header ‘Access-Control-Allow-Originputs
 
 #   [403, "POST /message\n"]
 # end
