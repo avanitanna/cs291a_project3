@@ -13,6 +13,18 @@
   color: white;
 }
 
+#user_list_style{
+    border-left:2px solid white;
+    float:right;
+    width: 10em;
+}
+
+#message_list_style{
+    position: relative;
+    font-size: 18px;
+    bottom: 0;
+}
+
 .App-link {
   color: #61dafb;
 }
