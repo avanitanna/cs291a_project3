@@ -1,34 +1,3 @@
-
-Conversation opened. 12 messages. 1 message unread.
-
-Skip to content
-Using University of California, Santa Barbara Mail with screen readers
-Enable desktop notifications for University of California, Santa Barbara Mail.   OK  No thanks
-6 of 814
-CS291A project 3
-Inbox
-avani@umail.ucsb.edu
-	
-	AttachmentsThu, Oct 14, 2:49 PM (7 days ago)
- 
-9
-saastha@umail.ucsb.edu
-	
-	Tue, Oct 19, 10:06 PM (2 days ago)
-SCHEDULE_TIME = 32 #connections = [] connections = {} $connected_users = [] $all_users = [] #list of all user objects #$users_pwds = Hash.new #$events = [] #che
-saastha@umail.ucsb.edu
-	
-AttachmentsWed, Oct 20, 8:39 PM (15 hours ago)
-	
-to Avani
-...
-
-[Message clipped]  View entire message
-Attachments area
-	
-	
-	
-
 # frozen_string_literal: true
 
 require 'eventmachine'
