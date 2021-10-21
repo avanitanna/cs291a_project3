@@ -1,3 +1,34 @@
+
+Conversation opened. 12 messages. 1 message unread.
+
+Skip to content
+Using University of California, Santa Barbara Mail with screen readers
+Enable desktop notifications for University of California, Santa Barbara Mail.   OK  No thanks
+6 of 814
+CS291A project 3
+Inbox
+avani@umail.ucsb.edu
+	
+	AttachmentsThu, Oct 14, 2:49 PM (7 days ago)
+ 
+9
+saastha@umail.ucsb.edu
+	
+	Tue, Oct 19, 10:06 PM (2 days ago)
+SCHEDULE_TIME = 32 #connections = [] connections = {} $connected_users = [] $all_users = [] #list of all user objects #$users_pwds = Hash.new #$events = [] #che
+saastha@umail.ucsb.edu
+	
+AttachmentsWed, Oct 20, 8:39 PM (15 hours ago)
+	
+to Avani
+...
+
+[Message clipped]  View entire message
+Attachments area
+	
+	
+	
+
 # frozen_string_literal: true
 
 require 'eventmachine'
@@ -5,467 +36,489 @@ require 'sinatra'
 require 'json'
 require 'jwt'
 
-SCHEDULE_TIME = 32
-connections = []
 
+SCHEDULE_TIME = 3600
+set :server_settings, :timeout => 20
+
+connections = {}
 
 $connected_users = []
 $all_users = [] #list of all user objects
-#$users_pwds = Hash.new 
-#$events = [] #check for join/part events
-#$join_messages = []
-#$part_messages = []
-#$messages = []
-# {"event": "JOIN"/"PART"/"Message/ServerStatus/Users/Disconnect", "created/timeStamp:", "id": counter/sequential}
-# {id: {event_name, created, message, users, user,status}}
-$events = Hash.new
-$event_counter = 1
 
-#As per the requirements First event should be server status therefore, 
-$events[0] = {"event": "ServerStatus", "created": Time.now.to_f.to_s, "message": "", "users": [],
-         "user": "", "status": "Server start"}
+$events = Hash.new
+$event_counter = 0
 
 # Add options to specify CORS headers
 options '/message' do
-  headers 'Access-Control-Allow-Origin' => '*'
-  headers 'Access-Control-Allow-Credentials' => 'true'
-  headers 'Access-Control-Allow-Methods' => 'GET,HEAD,OPTIONS,POST,PUT'
-  headers 'Access-Control-Allow-Headers' => 'Access-Control-Expose-Headers, Token, Authorization, Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers'
+    headers 'Access-Control-Allow-Origin' => '*'
+    headers 'Access-Control-Allow-Credentials' => 'true'
+    headers 'Access-Control-Allow-Methods' => 'GET,HEAD,OPTIONS,POST,PUT'
+    headers 'Access-Control-Allow-Headers' => 'Access-Control-Expose-Headers, Token, Authorization, Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers'
 end
 
 def funcJoin(msg_data)
   return {
-    "created": msg_data["created"],
-    "user": msg_data["user"]
-}
-
+    "created": msg_data[:created],
+    "user": msg_data[:user]
+}.to_json
 end
 
 def funcPart(msg_data)
   return {
-    "created": msg_data["created"],
-    "user": msg_data["user"]
-}
-
+    "created": msg_data[:created],
+    "user": msg_data[:user]
+}.to_json
 end
 
 def funcServerStatus(msg_data)
   return {
-    "created": msg_data["created"],
-    "status": msg_data["status"]
-}
-
+    "created": msg_data[:created],
+    "status": msg_data[:status]
+}.to_json
 end
 
 def funcUsers(msg_data)
   return {
-    "created": msg_data["created"],
-    "users": $active_users
-    
-}
-
+    "created": msg_data[:created],
+    "users": msg_data[:users]  
+}.to_json
 end
 
 def funcMessage(msg_data)
   return {
-    "created": msg_data["created"],
-    "message": msg_data["message"],
-    "user": msg_data["user"]
-}
-
+    "created": msg_data[:created],
+    "message": msg_data[:message],
+    "user": msg_data[:user]
+}.to_json
 end
 
 def funcDisconnect(msg_data)
   return {
-    "created": msg_data["created"]
-}
-
+    "created": msg_data[:created]
+}.to_json
 end
 
 $secret_message = "my_message_secret"
 $secret_stream = "my_stream_secret"
 
+stream_token_username_dict = Hash.new
+
+
 class Clients 
 
   #@@events = Hash.new #last 100 messages
-  def initialize(username, password, stream_token, message_token, user_stream = FALSE, user_lasteventid = 0)
+  #Added join index
+  def initialize(username, password, stream_token, message_token, stream_variable = false, connection_variable=false,  connection_object = nil)
     @username = username
     @password = password
     @stream_token = stream_token
     @message_token = message_token
-    @user_stream = user_stream
-    @user_lasteventid = user_lasteventid
-    #@last_message_user = last_message_user#last message broadcasted to a user?
+    @stream_variable = stream_variable
+    @connection_variable = connection_variable
+    @connection_object = connection_object
   
   end
-
-
 end
 
 
 EventMachine.schedule do
-  EventMachine.add_periodic_timer(SCHEDULE_TIME) do
-    # Change this for any timed events you need to schedule.
-    puts "This message will be output to the server console every #{SCHEDULE_TIME} seconds"
+    EventMachine.add_periodic_timer(SCHEDULE_TIME) do
+      message = "event: ServerStatus\ndata: {\"status\": \"I am alive!\", \"created\": #{Time.now.to_f}}\n\n\n"
+      connections.each do |connection, username|
+        connection << message
+        #$all_messages << [message, true]
+      end
+  
+    end
+  end
+
+
+def create_event(user_status, event_id)
+  event_val = $events[event_id]
+  puts "event_id: " + event_id.to_s + " event_counter: " + $event_counter.to_s
+  if event_id == nil
+    return "\n\n"
+  end
+  if event_val[:event] == "Join" and user_status != "new_user"
+    return "data: "+funcJoin(event_val).to_s+"\n"+"event: "+event_val[:event]+"\n"+"id: "+event_id.to_s+"\n\n" #TO do - verify how to return these three fields
+  end
+  if event_val[:event] == "Part" and user_status != "new_user"
+    return "data: "+funcPart(event_val).to_s+"\n"+"event: "+event_val[:event]+"\n"+"id: "+event_id.to_s+"\n\n"
+  end
+  if event_val[:event] == "Message"
+    return "data: "+funcMessage(event_val).to_s+"\n"+"event: "+event_val[:event]+"\n"+"id: "+event_id.to_s+"\n\n"
+  end
+  if event_val[:event] == "ServerStatus"
+    return "data: "+funcServerStatus(event_val).to_s+"\n"+"event: "+event_val[:event]+"\n"+"id: "+event_id.to_s+"\n\n"
+  end
+  if event_val[:event] == "Users"
+    return "data: "+funcUsers(event_val).to_s+"\n"+"event: "+event_val[:event]+"\n"+"id: "+event_id.to_s+"\n\n"
+  end
+  if event_val[:event] == "Disconnect"
+    return "data: "+funcDisconnect(event_val).to_s+"\n"+"event: "+event_val[:event]+"\n"+"id: "+event_id.to_s+"\n\n"
   end
 end
+
+
 
 get '/stream/:token', provides: 'text/event-stream' do
-  headers 'Access-Control-Allow-Origin' => '*'
-
-  #TO DO Bearer match - dont have to as the stream token is in the URL
-  #puts params
-  username = ""
-  stream_exists = FALSE
-  if params.key?('token') and params['token']!=""
-    user_match = FALSE
-    for user in $all_users
-      if user.instance_variable_get(:@stream_token) == params['token']
-        username = user.instance_variable_get(:@username)
-        stream_exists = user.instance_variable_get(:@user_stream)
-        #user_match = TRUE
-
-        if stream_exists == TRUE ## are we sending messages in this case? - no 
-          status 409
-          return
-        else
-          user.instance_variable_set(:@user_stream,TRUE)
-          stream(:keep_open) do |connection|
-            connections << connection
-            
-            #update class variable user_stream 
-
-            # for user in $all_users
-            #   if user.instance_variable_get(:username) == username
-            #     user.instance_variable_set(:user_stream) = TRUE
-            #     break
-            #   end
-            # end
-
-            ## when you open the stream, you broadcast join. post message broadcast messages
-            connection << "data: Welcome!\n\n"
-            #when any event is created, we add a timestamp time.now.to_f.to_s...
-            idx = request.env.filter { |x| x.start_with?('HTTP_Last-Event-Id') } 
-            user_status = ""
-            if idx == nil or not $events.key? idx
-              idx = 0 #this will be considered as a new connection 
-              user_status = "new_user"
-            end
-
-            ### CHECK?? if the stream of the user is open, increment the last event id counter by 1 for that user. We are assuming that if the stream is open, the user would have received the above message
-            #active_users can be used to for getting the list of connected users for Users event
-            $active_users = []
-            for usr in $all_users
-              if usr.instance_variable_get(:@user_stream) == TRUE
-                active_users.append(usr.instance_variable_get(:@username))
-                usr.instance_variable_set(:@user_lasteventid, $event_counter)
-              end
-            end
-            
-            ## send join to that user himself - store join id in the class and send/broadcast it to the user here as now his stream is open 
-            #Send users event here
-            
-            for event_id in idx..$events.length()-1 do
-              event_val = $events[event_id] 
-              if event_val["event"] == "JOIN" and user_status != "new_user"
-                connection << "data: "+funcJoin(event_val).to_s+"\n"+"event: "+event_val["event"]+"\n"+"id: "+event_id.to_s+"\n\n" #TO do - verify how to return these three fields
-              elsif event_val["event"] == "PART" and user_status != "new_user"
-                connection << "data: "+funcPart(event_val).to_s+"\n"+"event: "+event_val["event"]+"\n"+"id: "+event_id.to_s+"\n\n"
-              elsif event_val["event"] == "ServerStatus"
-                connection << "data: "+funcServerStatus(event_val).to_s+"\n"+"event: "+event_val["event"]+"\n"+"id: "+event_id.to_s+"\n\n"
-              elsif event_val["event"] == "Users"
-                connection << "data: "+funcUsers(event_val).to_s+"\n"+"event: "+event_val["event"]+"\n"+"id: "+event_id.to_s+"\n\n"
-              ### TO DO - Disconnect only to be sent to the user who quits. Not to be broadcasted. Also this is not broadcasting.
-              #elsif event_val["event"] == "Disconnect"
-                #connection << "data: "+funcDisconnect(event_val).to_s+"\n"+"event: "+event_val["event"]+"\n"+"id: "+event_id.to_s+"\n\n"
-              else 
-                connection << "data: "+funcMessage(event_val).to_s+"\n"+"event: "+event_val["event"]+"\n"+"id: "+event_id.to_s+"\n\n"
-              end
-            end
-            ## req.env HTTP_last_event_id... check this header and check the index msg idx == last event id , send messages after that index 
-            ## if nil, send everything 
-            ## open stream, server status, user list and all our history - message id 
-            ### TO DO - add last event id to check which ones are to be sent to a user 
-            # if $connected_users.include?(username) #decode token to get username JWT decode !! is in connected_users
-            #   connection << $events
-            # else
-            #   $events.each{|event| connection << event if event.include?("event: Join") or event.include?("event: part")}
-            #   #connection << $events #without join and part 
-            # end
-            connection.callback do
-              puts 'callback'
-              connections.delete(connection)
-            end
-          end
-        end
-
-        # TO DO create body with 'users' and 'created' - check specifications!!
-        status 200
+    headers 'Access-Control-Allow-Origin' => '*'
+    if not params.key?('token') or params['token'] ==""
+        status 403
         return
-        #break
-      end
-      
     end
-    status 403
-    return 
-    # if user_match == FALSE
-    #   status 403
-    #   return 
-      #username = JWT.decode(params['token'], $secret_stream, true).split(\n)[0].to_s
-      #for user in $all_users
-        #if user.instance_variable_get(:@username) == username
-          #if user.instance_variable_get(:@user_stream) == True #user.connection is not False, that is connection exists
+    current_stream_token = params['token']
+    
+    token_found = 0
+    username = ""
+    
+    for user in $all_users
+        if user.instance_variable_get(:@stream_token) == current_stream_token
+            username = user.instance_variable_get(:@username)
+            if user.instance_variable_get(:@connection_variable) == true
+                status 409
+                return
+            end
+        end
+    end
+    if username == ""
+        status 403
+        return
+    end
+
+    stream(:keep_open) do |connection|
+        for user in $all_users
+            if user.instance_variable_get(:@username) == username
+                user.instance_variable_set(:@connection_object, connection)
+                user.instance_variable_set(:@connection_variable, true)
+                connections[connection] = username
+                connections.each do |connection, user|
+                    time_stamp = Time.now.to_f.to_s
+                    event = {"event": "Join", "created": time_stamp, "message": "", "users": [], "user": username, "status": ""}
+                    $events[$event_counter] = event
+                    connection << create_event("False", $event_counter)
+                    $event_counter +=1 
+                end
+
+                lasteventid = request.env['HTTP_LAST_EVENT_ID']
+                puts "last event id : " + lasteventid.to_s
+                if lasteventid and lasteventid !=0
+                    lasteventid = lasteventid.to_i+1
+                    for eventid in lasteventid..$event_counter-1 do 
+                        connection << create_event("new_user", eventid)
+                    end
+                    
+                else
+                    puts "Last event id is 0\n"
+                    time_stamp = Time.now.to_f.to_s
+                    active_users = []
+                    for usr in $all_users
+                        if usr.instance_variable_get(:@connection_variable) == true
+                            usr_name = usr.instance_variable_get(:@username)
+                            active_users.append(usr_name) 
+                        end
+                    end
+                    
+                    event = {"event": "Users", "created": time_stamp, "message":"", "users": active_users, "status": ""}
+                    event_id = $event_counter + 10000
+                    message = "data: "+funcUsers(event).to_s+"\n"+"event: "+event[:event]+"\n"+"id: "+event_id.to_s+"\n\n"
+                    puts "\nUsers message: " + message + "\n\n"
+                    connection << message
+                    lasteventid = 0
+                    for eventid in lasteventid..$event_counter -1 do
+                        connection << create_event("new_user", eventid)
+                    end
+                end
+            end
+        end   
+        
+        connection.callback do
+            username = connections[connection]
+            connections.delete(connection)
+            for user in $all_users
+                if user.instance_variable_get(:@username) == username
+                    user.instance_variable_set(:@connection_object, nil)
+                end
+            end
+        end
+    end
       
-    # end
-  else
-    status 403
-    return
-  end
+    status 200
+    return 
 end
-  # stream(:keep_open) do |connection|
-  #   connections << connection
-
-  #   connection << "data: Welcome!\n\n"
-
-  #   connection.callback do
-  #     puts 'callback'
-  #     connections.delete(connection)
-  #   end
-  # end
+    
 
 
-# get '/stream/:token', provides: 'text/event-stream' do
-#   headers 'Access-Control-Allow-Origin' => '*'
-#   stream(:keep_open) do |connection|
-#     connections << connection
 
-#     connection << "data: Welcome!\n\n"
-
-#     connection.callback do
-#       puts 'callback'
-#       connections.delete(connection)
-#     end
-#   end
-# end
-
-# post '/login' do
-#   [422, 'POST /login\n']
-# end
-
-## To do - increment last event id by 1 for every user and broadcast join message, i.e. open stream for every user
 post '/login' do
-  headers 'Access-Control-Allow-Origin' => '*'
+
+   headers 'Access-Control-Allow-Origin' => '*'
   # if username and password fields are provided by the client
   if params.key?('username') and params.key?('password') and params.keys.length() == 2
     username = params['username']
     password = params['password']
-
     #provided two fields do not match the expected two fields
     if username == "" or password == ""
       status 422
       return 
     end
 
-    #if the stream is already open for username (Could be an issue) I dont think we need connection
-    # if $connected_users.include?(username)
-    #   status 409
-    #   return 
-    # end
-
-    payload = {'data': username+"\n"+Time.now.to_f.to_s} #what if username has an underscore or any other character including a space
+    #Token payload and token creation
+    payload = {'data': username+"\n"+Time.now.to_f.to_s}
     message_token = JWT.encode payload, $secret_message, 'HS256'
     stream_token = JWT.encode payload, $secret_stream, 'HS256'
     for user in $all_users
       if user.instance_variable_get(:@username) == username
         #if the stream is already open
-        if user.instace_variable_get(:@user_stream) == TRUE
+        if user.instance_variable_get(:@connection_variable) == true
             status 409
             return
         end
+
         #if the username matches but the password does not
         if user.instance_variable_get(:@password) != password
           status 403
           return 
         else
+          #setting token
           user.instance_variable_set(:@stream_token, stream_token) 
           user.instance_variable_set(:@message_token, message_token)
-          #Setting Stream instance variable as true
-          user.instace_variable_set(:@user_stream, TRUE)
           
-          #$connected_users.append(username)
-
-          ### BROADCAST JOIN - check????
-          time_stamp = Time.now.to_f.to_s
-          $events[$event_counter] = {"event": "JOIN", "created": time_stamp, 
-                              "message": "", "users": [], "user": username, "status": ""}
-          connections.each do |connection|  ## create msg templates, create event, then broadcast it
-            # time_stamp = Time.now.to_f.to_s
-            # $events[$event_counter] = {"event": "JOIN", "created": time_stamp, 
-            #                   "message": "", "users": [], "user": username, "status": ""}
-            connection << "data: "+funcJoin($events[$event_counter]).to_s+"\n"+"event: "+$events[$event_counter]["event"]+"\n"+"id: "+$event_counter.to_s+"\n\n" ### CHECK???? #TO DO- how do we check ids of each of the messages? #"data: Goodbye!\n\n" #TO DO - is it broadcasting the message?
-            connection.close  # This call will trigger connection.callback
-          end
-          ### CHECK?? if the stream of the user is open, increment the last event id counter by 1 for that user. We are assuming that if the stream is open, the user would have received the above message
-          
-          #Changing the event id of all the users connected to stream
-          for usr in $all_users
-            if usr.instance_variable_get(:@user_stream) == TRUE
-              usr.instance_variable_set(:@user_lasteventid, $event_counter)
-            end
-          end
-
-          #increment global event counter
-          $event_counter+=1
-          return [201,{"message_token": message_token, "stream_token":stream_token}.to_json]
-          #status 201
-          #return
+          return [201, {"message_token": message_token, "stream_token":stream_token}.to_json]
         end
+
       end
     end
-    
-    #user = Clients.new(username, password, stream_token, message_token)
-    #$connected_users.append(username)
-    #We are also opening the stream at this point
-    user = Clients.new(username, password, stream_token, message_token, TRUE)
-    $all_users.append(user)
-    ### BROADCAST JOIN - check????
-    time_stamp = Time.now.to_f.to_s
-    $events[$event_counter] = {"event": "JOIN", "created": time_stamp, 
-                        "message": "", "users": [], "user": username, "status": ""}
-    connections.each do |connection|  ## create msg templates, create event, then broadcast it
-      # time_stamp = Time.now.to_f.to_s
-      # $events[$event_counter] = {"event": "JOIN", "created": time_stamp, 
-      #                   "message": "", "users": [], "user": username, "status": ""}
-      connection << "data: "+funcJoin($events[$event_counter]).to_s+"\n"+"event: "+$events[$event_counter]["event"]+"\n"+"id: "+$event_counter.to_s+"\n\n" ### CHECK???? #TO DO- how do we check ids of each of the messages? #"data: Goodbye!\n\n" #TO DO - is it broadcasting the message?
-      connection.close  # This call will trigger connection.callback
-    end
 
-    #increment global event counter
-    $event_counter+=1
-    #puts $events 
+    #When the username does not match
+    user = Clients.new(username, password, stream_token, message_token)
+    $all_users.append(user)
+    time_stamp = Time.now.to_f.to_s
     return [201,{"message_token": message_token, "stream_token":stream_token}.to_json]
-    #{"message_token": message_token, "stream_token":stream_token}.to_json
-    #status 201
   else
     status 422
     return
   end
-    #[422, 'POST /login\n']
 end
 
-
-post '/message' do
-  headers 'Access-Control-Allow-Origin' => '*'
-  require 'pp'
-  if not request.env.filter { |x| x.start_with?('HTTP_AUTHORIZATION') } 
-    status 422
-    return 
-  end
-  if not params.key?('message') or params['message']=="" or params.keys.length()!=1
-    status 422
-    return 
-  end 
-  ## TO DO - check if HTTP_AUTHORIZATION and Bearer are case sensitive checks 
-  message_token = request.env.filter { |x| x.start_with?('HTTP_AUTHORIZATION') }['HTTP_AUTHORIZATION'].to_s
-  message_bearer = message_token.split(' ')[0]
-  message_token = message_token.split(' ')[1]
-  if not message_bearer == "Bearer"
-    status 403
-    return 
-  end 
-  for user in $all_users
-    if user.instance_variable_get(:@message_token) == message_token
-      username = user.instance_variable_get(:@username)
-      payload = {'data': username+"\n"+Time.now.to_f.to_s}
-      message_token_new = JWT.encode payload, $secret_message, 'HS256'
-      user.instance_variable_set(:@message_token, message_token_new)
-      if user.instance_variable_get(:@user_stream) == FALSE
-        status 409
+post '/message' do 
+    headers 'Access-Control-Allow-Origin' => '*'
+    #headers 'Access-Control-Allow-Headers' => 'Access-Control-Expose-Headers, Token, Authorization, Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers'
+    headers 'Access-Control-Expose-Headers' => 'Token'
+    if not request.env.filter { |x| x.start_with?('HTTP_AUTHORIZATION') } 
+        status 422
         return 
-      else
-        # connections.each do |connection|  ## create msg templates, create event, then broadcast it 
-        #   connection << params['message'].to_s #TO DO- how do we check ids of each of the messages? #"data: Goodbye!\n\n" #TO DO - is it broadcasting the message?
-        #   connection.close  # This call will trigger connection.callback
-        ## BROADCAST - check????
-        time_stamp = Time.now.to_f.to_s
-        $events[$event_counter] = {"event": "Message", "created": time_stamp, 
-                            "message": params["message"].to_s, "users": [], "user": username, "status": ""}
-        connections.each do |connection|  ## create msg templates, create event, then broadcast it
-          # time_stamp = Time.now.to_f.to_s
-          # $events[$event_counter] = {"event": "Message", "created": time_stamp, 
-          #                   "message": params["message"].to_s, "users": [], "user": username, "status": ""}
-          connection << "data: "+funcMessage($events[$event_counter]).to_s+"\n"+"event: "+$events[$event_counter]["event"]+"\n"+"id: "+$event_counter.to_s+"\n\n" ### CHECK???? #TO DO- how do we check ids of each of the messages? #"data: Goodbye!\n\n" #TO DO - is it broadcasting the message?
-          connection.close  # This call will trigger connection.callback
-        end
-        ### CHECK?? if the stream of the user is open, increment the last event id counter by 1 for that user. We are assuming that if the stream is open, the user would have received the above message
-        for usr in $all_users
-          if usr.instance_variable_get(:@user_stream) == TRUE
-            usr.instance_variable_set(:@user_lasteventid, $event_counter)
-          end
-        end
-
-        # increment global event counter
-        $event_counter+=1
-        puts $events
-        [201,{"Token": message_token_new}.to_json] #TO /do broadcast message to allusers??
-        return 
-      end
     end
-  end
-  status 403
-  return 
+
+    #this needs update
+    if not params.key?('message') or params['message']=="" or params.keys.length()!=1
+        status 422
+        return 
+    end
+
+    authorization_header = request.env['HTTP_AUTHORIZATION']
+    if not authorization_header 
+    #if not message_bearer == "Bearer"
+        status 403
+        return
+    end
+    message_bearer = authorization_header.split(' ')[0]
+    message_token = authorization_header.split(' ')[1]
+    if not authorization_header.split(' ')[0] == "Bearer"
+        status 403
+        return
+    end
+    username = ""
+    stream_value = false
+    for user in $all_users
+        if user.instance_variable_get(:@message_token) == message_token
+          username = user.instance_variable_get(:@username)
+          stream_value = user.instance_variable_get(:@connection_variable)
+        end
+    end
+    
+    if username == ""
+        status 403
+        return
+    end
+
+    if stream_value == false
+        status 409
+        return
+    end
+
+    payload = {'data': username+"\n"+Time.now.to_f.to_s}
+    message_token_new = JWT.encode payload, $secret_message, 'HS256'
+
+    message = params['message']
+    if message == "/reconnect" or message == "/quit" or message.include? "/kick "
+        
+        if message == "/quit"
+            for user in $all_users
+                if user.instance_variable_get(:@username) == username
+                    connection_object = user.instance_variable_get(:@connection_object)
+                    user.instance_variable_set(:@connection_object, nil)
+                    user.instance_variable_set(:@connection_variable, false)
+                end
+            end
+    
+            time_stamp = Time.now.to_f.to_s
+            event = {"event": "Part", "created": time_stamp, "message": "", "users": [], "user": username, "status": ""}
+            $events[$event_counter] = event
+            puts "Part event created\n"
+    
+            connections.each do |connection, user|
+                if connections[connection] == username
+                    time_stamp = Time.now.to_f.to_s
+                    disconnect_event = {"event": "Disconnect", "created": time_stamp, "message": "", "users": [], "user": username, "status": ""}
+                    event_id = $event_counter + 1001
+                    connection << "data: "+funcDisconnect(disconnect_event).to_s+"\n"+"event: "+disconnect_event[:event]+"\n"+"id: "+event_id.to_s+"\n\n"
+                    puts "sent disconnect event : " + "data: "+funcDisconnect(disconnect_event).to_s+"\n"+"event: "+disconnect_event[:event]+"\n"+"id: "+event_id.to_s+"\n\n"
+                    connections.delete(connection)
+                    puts "Deleted conenction for " + username + "\n\n"
+    
+                else
+                    puts "Part message: " + create_event("False", $event_counter)
+                    connection << create_event("False", $event_counter)
+                end
+            end
+            $event_counter += 1
+            for user in $all_users
+                if user.instance_variable_get(:@username) == username
+                    user.instance_variable_set(:@message_token, message_token_new)
+                end
+            end
+            status 201
+            response.headers['Token'] = message_token_new.to_s
+            return
+        elsif message == "/reconnect"
+
+            time_stamp = Time.now.to_f.to_s
+            event = {"event": "Part", "created": time_stamp, "message": "", "users": [], "user": username, "status": ""}
+            $events[$event_counter] = event
+            puts "Part event created\n"
+            connections.each do |connection, user|
+                puts "Part message: " + create_event("False", $event_counter)
+                connection << create_event("False", $event_counter)
+                if connections[connection] == username
+                    connection.close
+                    connections.delete(connection)
+                end
+            end
+            for user in $all_users
+                if user.instance_variable_get(:@username) == username
+                    user.instance_variable_set(:@connection_variable, false)
+                    user.instance_variable_set(:@connection_object, nil)
+                end
+            end
+            $event_counter += 1
+            for user in $all_users
+                if user.instance_variable_get(:@username) == username
+                    user.instance_variable_set(:@message_token, message_token_new)
+                end
+            end
+            status 201
+            response.headers['Token'] = message_token_new.to_s
+            return
+        else
+            kick_message = message.split(" ")
+            if kick_message.length != 2
+                status 409
+                response.headers['Token'] = message_token_new.to_s
+                for user in $all_users
+                    if user.instance_variable_get(:@username) == username
+                        user.instance_variable_set(:@message_token, message_token_new)
+                    end
+                end
+                return
+            end
+            kick_username = kick_message[1]
+
+            puts "User asked to kick " + kick_username
+            if kick_username == username
+                status 409
+                response.headers['Token'] = message_token_new.to_s
+                for user in $all_users
+                    if user.instance_variable_get(:@username) == username
+                        user.instance_variable_set(:@message_token, message_token_new)
+                    end
+                end
+                return
+            end
+
+            flag = 0
+                
+            for user in $all_users
+                if user.instance_variable_get(:@username) == kick_username
+                    flag = 1
+                end
+            end
+            #username not found
+            if flag == 0
+                status 409
+                response.headers['Token'] = message_token_new.to_s
+                for user in $all_users
+                    if user.instance_variable_get(:@username) == username
+                        user.instance_variable_set(:@message_token, message_token_new)
+                    end
+                end
+                return
+            end
+
+                
+            time_stamp = Time.now.to_f.to_s
+            event = {"event": "Part", "created": time_stamp, "message": "", "users": [], "user": kick_username, "status": ""}
+            $events[$event_counter] = event
+            puts "Part event created\n"
+            
+            connections.each do |connection, user|
+                puts "Part message: " + create_event("False", $event_counter)
+                connection << create_event("False", $event_counter)
+                if connections[connection] == kick_username
+                    connection.close
+                    connections.delete(connection)
+
+                end
+            end
+
+            for user in $all_users
+                if user.instance_variable_get(:@username) == kick_username
+                    user.instance_variable_set(:@connection_variable, false)
+                    user.instance_variable_set(:@connection_object, nil)
+                end
+            end
+            
+            $event_counter += 1
+            for user in $all_users
+                if user.instance_variable_get(:@username) == username
+                    user.instance_variable_set(:@message_token, message_token_new)
+                end
+            end
+            status 201
+            response.headers['Token'] = message_token_new.to_s
+            return
+        end
+        
+    else
+        time_stamp = Time.now.to_f.to_s
+        event = {"event": "Message", "created": time_stamp, "message": message, "users": [], "user": username, "status": ""}
+        $events[$event_counter] = event
+    
+        connections.each do |connection, user|
+            puts "Message event created for broadcast: " + create_event("False", $event_counter).to_s
+            connection << create_event("False", $event_counter)
+        end
+
+        $event_counter +=1 
+        for user in $all_users
+            if user.instance_variable_get(:@username) == username
+                user.instance_variable_set(:@message_token, message_token_new)
+            end
+        end
+    end    
+    status 201
+    response.headers['Token'] = message_token_new.to_s
+    return
+    #[201, {"message_token": message_token, "stream_token":stream_token}.to_json]
+
 end
-
-
-#Code added or modified:
-#1. Created first event and changed the initial value of event counter to 1
-#2. removed connected_users array and added support for looping to check if the stream is open in Post /login
-#3. Created a template for sending Users event whenever a new user is logs in
-#4. created template for reconnect, quit and kick (see below) 
-
-
-
-
-
-#Additional code for /post message
-# if params.has_key?"reconnect"
-#     #Send part to everyone
-#   if params.has_key?"quit"
-#     #Send disconnect to sending user
-#     #bradcast part for that user
-#   if params.has_key?"kick"
-#     kick_username = params[:kick]
-#     #check if the username is current user or the username does not exist
-#     for user in $all_users
-#       if user.instance_variable_get(:@message_token) == message_token
-#         username = user.instance_variable_get(:@username) 
-#         if kick_username == username
-#           status 409
-#           return
-#         else
-#           #Part message to everyone
-#           status 201
-#         end
-#       end
-#     end
-#     #username does not exist in the database
-#     status 409
-
-# post '/message' do
-#   require 'pp'
-#   #PP.pp(request.env.filter { |x| x.start_with?('HTTP_AUTHORIZATION') })
-#   connections.each do |connection|
-#     connection << "data: Goodbye!\n\n"
-#     connection.close  # This call will trigger connection.callback
-#   end
-
-#   puts 'Headers'
-#   PP.pp(request.env.filter { |x| x.start_with?('HTTP_') })
-#   puts
-
-#   puts 'request.params:'
-#   PP.pp request.params
-#   CORS header ‘Access-Control-Allow-Originputs
-
-#   [403, "POST /message\n"]
-# end
