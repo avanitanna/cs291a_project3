@@ -6,20 +6,24 @@ require 'json'
 require 'jwt'
 
 
-$start_time = Time.now.to_f
-
-SCHEDULE_TIME = 3600
-set :server_settings, :timeout => 20
-
+SCHEDULE_TIME = 32
+#connections = []
 connections = {}
 
 $connected_users = []
 $all_users = [] #list of all user objects
-
+#$users_pwds = Hash.new 
+#$events = [] #check for join/part events
+#$join_messages = []
+#$part_messages = []
+#$messages = []
+# {"event": "Join"/"Part"/"Message/ServerStatus/Users/Disconnect", "created/timeStamp:", "id": counter/sequential}
+# {id: {event_name, created, message, users, user,status}}
 $events = Hash.new
+$event_counter = 0
 
-$events[0] = {"event": "ServerStatus", "created": $start_time.to_s, "message":"", "users": [], "status": "Up since " + Time.at($start_time).to_s}
-$event_counter = 1
+#As per the requirements First event should be server status therefore, #
+#$events[0] = {"event": "ServerStatus", "created": Time.now.to_f.to_s, "message": "", "users": [], "user": "", "status": "Server start"}
 
 # Add options to specify CORS headers
 options '/message' do
@@ -94,27 +98,24 @@ class Clients
 end
 
 
-
 EventMachine.schedule do
     EventMachine.add_periodic_timer(SCHEDULE_TIME) do
-      message = "event: ServerStatus\ndata: {\"status\": \"up since\" + #{Time.at($start_time).to_s}, \"created\": #{Time.now.to_f.to_s}}\n\n\n"
+      message = "event: ServerStatus\ndata: {\"status\": \"I am alive!\", \"created\": #{Time.now.to_f}}\n\n\n"
       connections.each do |connection, username|
         connection << message
         #$all_messages << [message, true]
       end
-
+  
     end
   end
 
 
 def create_event(user_status, event_id)
   event_val = $events[event_id]
-  #puts "event_id: " + event_id.to_s + " event_counter: " + $event_counter.to_s
+  puts "event_id: " + event_id.to_s + " event_counter: " + $event_counter.to_s
   if event_id == nil
     return "\n\n"
   end
-  #print(event_id)
-  #print(event_val)
   if event_val[:event] == "Join" and user_status != "new_user"
     return "data: "+funcJoin(event_val).to_s+"\n"+"event: "+event_val[:event]+"\n"+"id: "+event_id.to_s+"\n\n" #TO do - verify how to return these three fields
   end
@@ -127,30 +128,14 @@ def create_event(user_status, event_id)
   if event_val[:event] == "ServerStatus"
     return "data: "+funcServerStatus(event_val).to_s+"\n"+"event: "+event_val[:event]+"\n"+"id: "+event_id.to_s+"\n\n"
   end
-  #puts "here"
-  if event_val[:event] == "Users" and user_status == "never send"
+  if event_val[:event] == "Users"
     return "data: "+funcUsers(event_val).to_s+"\n"+"event: "+event_val[:event]+"\n"+"id: "+event_id.to_s+"\n\n"
   end
-  #puts "before disconnect"
-  #puts $events
-  if event_val[:event] == "Disconnect" and user_status == "never send"
+  if event_val[:event] == "Disconnect"
     return "data: "+funcDisconnect(event_val).to_s+"\n"+"event: "+event_val[:event]+"\n"+"id: "+event_id.to_s+"\n\n"
   end
 end
 
-def check_last_eventid(last_event_id)
-    flag = 0
-    if last_event_id.is_a? Integer
-        return last_event_id
-    else
-        if last_event_id.to_i
-            return last_event_id.to_i
-        else
-            return flag
-        end
-    end
-
-end
 
 
 get '/stream/:token', provides: 'text/event-stream' do
@@ -193,17 +178,15 @@ get '/stream/:token', provides: 'text/event-stream' do
                 end
 
                 lasteventid = request.env['HTTP_LAST_EVENT_ID']
-                #puts "last event id : " + lasteventid.to_s
-                lasteventid_new = check_last_eventid(lasteventid)
-                if lasteventid_new !=0 and $events.include? lasteventid_new
+                puts "last event id : " + lasteventid.to_s
+                if lasteventid and lasteventid !=0
                     lasteventid = lasteventid.to_i+1
-                    for eventid in lasteventid+1..$event_counter-1 do 
+                    for eventid in lasteventid..$event_counter-1 do 
                         connection << create_event("new_user", eventid)
                     end
                     
-
                 else
-                    #puts "Last event id is 0\n"
+                    puts "Last event id is 0\n"
                     time_stamp = Time.now.to_f.to_s
                     active_users = []
                     for usr in $all_users
@@ -212,16 +195,11 @@ get '/stream/:token', provides: 'text/event-stream' do
                             active_users.append(usr_name) 
                         end
                     end
-
-                    # message = "event: ServerStatus\ndata: {\"status\": \"I am alive!\", \"created\": #{Time.now.to_f}}\n\n\n"
-                    # connection << message
+                    
                     event = {"event": "Users", "created": time_stamp, "message":"", "users": active_users, "status": ""}
-                    #event_id = $event_counter + 10000
-                    $events[$event_counter] = event
-
-                    message = "data: "+funcUsers(event).to_s+"\n"+"event: "+event[:event]+"\n"+"id: "+ $event_counter.to_s+"\n\n"
-                    $event_counter += 1
-                    #puts "\nUsers message: " + message + "\n\n"
+                    event_id = $event_counter + 10000
+                    message = "data: "+funcUsers(event).to_s+"\n"+"event: "+event[:event]+"\n"+"id: "+event_id.to_s+"\n\n"
+                    puts "\nUsers message: " + message + "\n\n"
                     connection << message
                     lasteventid = 0
                     for eventid in lasteventid..$event_counter -1 do
@@ -309,24 +287,19 @@ post '/message' do
         return 
     end
 
-    #this needs update
     if not params.key?('message') or params['message']=="" or params.keys.length()!=1
         status 422
         return 
     end
 
     authorization_header = request.env['HTTP_AUTHORIZATION']
-    if not authorization_header 
-    #if not message_bearer == "Bearer"
-        status 403
-        return
-    end
     message_bearer = authorization_header.split(' ')[0]
     message_token = authorization_header.split(' ')[1]
-    if not authorization_header.split(' ')[0] == "Bearer"
+    if not message_bearer == "Bearer"
         status 403
-        return
+        return 
     end
+
     username = ""
     stream_value = false
     for user in $all_users
@@ -365,22 +338,20 @@ post '/message' do
             event = {"event": "Part", "created": time_stamp, "message": "", "users": [], "user": username, "status": ""}
             $events[$event_counter] = event
             puts "Part event created\n"
-            $event_counter += 1
-
+    
             connections.each do |connection, user|
                 if connections[connection] == username
                     time_stamp = Time.now.to_f.to_s
                     disconnect_event = {"event": "Disconnect", "created": time_stamp, "message": "", "users": [], "user": username, "status": ""}
-                    $events[$event_counter] = disconnect_event
-                    connection << "data: "+funcDisconnect(disconnect_event).to_s+"\n"+"event: "+disconnect_event[:event]+"\n"+"id: "+$event_counter.to_s+"\n\n"
-                    #puts "sent disconnect event : " + "data: "+funcDisconnect(disconnect_event).to_s+"\n"+"event: "+disconnect_event[:event]+"\n"+"id: "+$event_counter.to_s+"\n\n"
-                    #$event_counter += 1
+                    event_id = $event_counter + 1001
+                    connection << "data: "+funcDisconnect(disconnect_event).to_s+"\n"+"event: "+disconnect_event[:event]+"\n"+"id: "+event_id.to_s+"\n\n"
+                    puts "sent disconnect event : " + "data: "+funcDisconnect(disconnect_event).to_s+"\n"+"event: "+disconnect_event[:event]+"\n"+"id: "+event_id.to_s+"\n\n"
                     connections.delete(connection)
-                    #puts "Deleted conenction for " + username + "\n\n"
+                    puts "Deleted conenction for " + username + "\n\n"
     
                 else
-                    #puts "Part message: " + create_event("False", $event_counter)
-                    connection << create_event("False", $event_counter-1)
+                    puts "Part message: " + create_event("False", $event_counter)
+                    connection << create_event("False", $event_counter)
                 end
             end
             $event_counter += 1
@@ -399,7 +370,7 @@ post '/message' do
             $events[$event_counter] = event
             puts "Part event created\n"
             connections.each do |connection, user|
-                #puts "Part message: " + create_event("False", $event_counter)
+                puts "Part message: " + create_event("False", $event_counter)
                 connection << create_event("False", $event_counter)
                 if connections[connection] == username
                     connection.close
