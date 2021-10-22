@@ -1,6 +1,7 @@
-import {Component} from 'react'
-import App from "./App";
+import React , {Component} from 'react'
 
+import App from "./App";
+import styles from './App.css';
 
 class Componse extends Component {
     constructor(props) {
@@ -9,6 +10,7 @@ class Componse extends Component {
         console.log(this.props.message_token)
 
         this._updateToken = this.props.changeToken.bind(this)
+        this.inputReference = React.createRef()
     }
 
     _updateToken = (token) => {
@@ -28,22 +30,24 @@ class Componse extends Component {
             if (xhr.status ===201){
                 let _newToken = xhr.getResponseHeader('Token')
                 this._updateToken(_newToken)
+                console.log(this.inputReference.current)
+                // this.inputReference.current = ''
             } else {
-                console.log("Somethign wrong while sending message")
+                console.log("Something wrong while sending message")
             }
         }.bind(this)
     }
     render() {
         return (
-            <div>
+            <div id="chat_compose_style">
                 <label>
-                    New message to send:
-                    <input type="text" name="compose"
+                    Send :
+                    <input type="text" name="compose" ref ={this.inputReference}
                            onChange={(e) => this.message = e.target.value}
                            onKeyUp={(e) => {
                                if (e.key === 'Enter' || e.keyCode === 13) {
                                    this.sendMessage(this.message)
-
+                                   e.target.value = ''
                                }
                            }}
                     />

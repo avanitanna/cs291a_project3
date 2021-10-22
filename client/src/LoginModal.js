@@ -1,6 +1,6 @@
 import {Component} from 'react'
 import App from "./App";
-
+import styles from './App.css';
 
 class LoginModal extends Component {
     constructor(props) {
@@ -82,20 +82,22 @@ class LoginModal extends Component {
     render() {
         return (
             <div>
+                <h3> Login Page</h3>
                     <label>
                         Server:
                         <input type="text" name="server" onChange={(e) => this.server = e.target.value}/>
                     </label>
-
+                    <br></br>
                     <label>
                         username:
                         <input type="text" name="username"onChange={(e) => this.username = e.target.value} />
                     </label>
-
+                     <br></br>
                     <label>
                         password:
                         <input type="text" name="password" onChange={(e) => this.password = e.target.value} />
                     </label>
+                    <br></br>
                     <input type="submit" value="Submit" onClick={(e)=>this.submit(this.server, this.username, this.password)}/>
             </div>
         )

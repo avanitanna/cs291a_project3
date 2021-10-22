@@ -13,6 +13,7 @@ class Users extends Component {
 
         return (
             <div id="user_list_style">
+                <h3> User List</h3>
                 <ul>
                     {messages}
                 </ul>

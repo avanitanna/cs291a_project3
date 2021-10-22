@@ -22,6 +22,11 @@ class App extends Component {
 
   }
 
+   date_format = (timestamp) => {
+        var date = new Date(timestamp * 1000);
+        return date.toLocaleDateString("en-US") + " " + date.toLocaleTimeString("en-US");
+    }
+
   updateMessageToken = message_token => {
     this.setState({message_token: message_token})
   }
@@ -74,16 +79,16 @@ class App extends Component {
     this.server.addEventListener(
         'Join',
         event => {
-          console.log("USERS EVEnt")
-          let data1 = JSON.parse(event.data)
-          //let data = event.data
-          let data2 = "Join: " + data1.user + "\n"
-
+            console.log("USERS EVEnt")
+            let data1 = JSON.parse(event.data)
+            //let data = event.data
+            //let data2 = this.date_format(data1.created)+" Join: " + data1.user + "\n"
+            let data3 = <li> {this.date_format(data1.created)} Join {data1.user}</li>
           // Update the set of users
           // Show the message in the history
           this.setState({
             users: Array.from(new Set (this.state.users.concat(data1.user))).map(u => u),
-            messages: this.state.messages.concat(data2)
+            messages: this.state.messages.concat(data3)
           })
         },
         false
@@ -94,8 +99,9 @@ class App extends Component {
         event => {
           console.log("PART EVENT")
           let data = JSON.parse(event.data)
-          let message = event.data.message
-
+            console.log("Left : " + data.user)
+          //let message = "Part: " + data.user
+            let message = this.date_format(data.created)+" Part "+data.user
           // Update the set of users
           // Show the message in the history
           this.setState({
@@ -109,13 +115,21 @@ class App extends Component {
     this.server.addEventListener(
         'Message',
         event => {
-          console.log("Message EVENT")
-          let message = event.data
-            //let message = event.data.user +" : "+ event.data.message
-          // Update the set of users
-          // Show the message in the history
+            console.log("Message EVENT")
+            let event_message = JSON.parse(event.data)
+            // Update the set of users
+            // Show the message in the history
+            let message = event_message.message
+            let username = event_message.user
+            let created = this.date_format(event_message.created)
+            console.log("HEY")
+            console.log(message)
+            console.log(username)
+            console.log(created)
+            let new_message = <li> {created} User: {username} says: {message}</li>
+
           this.setState({
-            messages: this.state.messages.concat(message)
+            messages: this.state.messages.concat(new_message)
           })
         },
         false
@@ -137,6 +151,7 @@ class App extends Component {
             path: "",
             Logged: false
           })
+
           this.server.close()
         },
         false
@@ -146,13 +161,15 @@ class App extends Component {
         'ServerStatus',
         event => {
           //TODO
-          console.log("Message EVENT")
-          let message = event.data
-
-          // Update the set of users
-          // Show the message in the history
-          this.setState({
-            messages: this.state.messages.concat(message)
+            console.log("Message EVENT")
+            let data1 = JSON.parse(event.data)
+            //let data = event.data
+            //let data2 = this.date_format(data1.created)+" Join: " + data1.user + "\n"
+            let data3 = <li> {this.date_format(data1.created)} Status {data1.status}</li>
+            // Update the set of users
+            // Show the message in the history
+            this.setState({
+            messages: this.state.messages.concat(data3)
           })
         },
         false
