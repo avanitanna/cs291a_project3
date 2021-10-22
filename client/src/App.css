@@ -13,6 +13,51 @@
   color: white;
 }
 
+#user_list_style{
+    border-left:2px solid white;
+    float:right;
+    width: 10em;
+    font-size: small
+}
+
+#message_box_style{
+    position: relative;
+    border: 1px solid white;
+    font-size: 18px;
+    bottom: 0;
+}
+#chat_box_style{
+    padding: 8px;
+    line-height: 1.4;
+    padding-right: 16px;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+    flex: 1;
+    font-size: large;
+    overflow-y: scroll;
+    text-align: left;
+}
+#messages{
+    font-size: small;
+}
+#chat_list_style{
+    list-style: none;
+}
+
+
+#chat_compose_style{
+    float: left;
+    width: 12%;
+    font-size: medium;
+    padding: 8px;
+    box-sizing: border-box;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    bottom: 0;
+}
+
+
 .App-link {
   color: #61dafb;
 }
