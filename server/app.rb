@@ -375,8 +375,10 @@ post '/message' do
                     connection << "data: "+funcDisconnect(disconnect_event).to_s+"\n"+"event: "+disconnect_event[:event]+"\n"+"id: "+$event_counter.to_s+"\n\n"
                     #puts "sent disconnect event : " + "data: "+funcDisconnect(disconnect_event).to_s+"\n"+"event: "+disconnect_event[:event]+"\n"+"id: "+$event_counter.to_s+"\n\n"
                     #$event_counter += 1
+                    connection.close
                     connections.delete(connection)
                     #puts "Deleted conenction for " + username + "\n\n"
+                    
     
                 else
                     #puts "Part message: " + create_event("False", $event_counter)
